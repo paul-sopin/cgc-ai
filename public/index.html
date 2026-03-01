@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Homework Tracker</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ── TOP BAR ─────────────────────────────────────────────────────────── -->
+  <header class="topbar">
+    <span class="topbar-title">Homework</span>
+    <div class="topbar-actions">
+      <span id="last-updated" class="last-updated"></span>
+      <button class="icon-btn" id="refresh-btn" title="Refresh">
+        <!-- refresh icon -->
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
+          <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+        </svg>
+      </button>
+      <button class="icon-btn" id="settings-btn" title="Settings">
+        <!-- gear icon -->
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06
+            a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09
+            A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83
+            l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09
+            A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83
+            l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09
+            a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83
+            l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09
+            a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+      </button>
+      <button class="icon-btn" id="theme-btn" title="Toggle theme" aria-label="Toggle theme">
+        <!-- sun (shown in dark mode) -->
+        <svg class="icon-sun" width="15" height="15" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="5"/>
+          <line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+          <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
+          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+        </svg>
+        <!-- moon (shown in light mode) -->
+        <svg class="icon-moon" width="15" height="15" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- ── MAIN CONTENT ──────────────────────────────────────────────────────── -->
+  <main id="main">
+    <div id="status-area"></div>
+    <div id="grid" class="columns-grid"></div>
+  </main>
+
+  <!-- ── SETUP / SETTINGS MODAL ───────────────────────────────────────────── -->
+  <div id="modal-overlay" class="modal-overlay hidden" role="dialog" aria-modal="true">
+    <div class="modal">
+      <h2 class="modal-title">Set up Homework Tracker</h2>
+      <p class="modal-subtitle">
+        Enter your Canvas access token to load your classes and assignments.
+      </p>
+
+      <!-- School selector -->
+      <div class="form-group">
+        <label for="school-select">School</label>
+        <select id="school-select">
+          <option value="dublinusd.instructure.com">Dublin High School (Dublin USD)</option>
+          <option value="custom">Other school — enter URL below</option>
+        </select>
+      </div>
+
+      <div class="form-group" id="custom-url-group" style="display:none;">
+        <label for="custom-url-input">Canvas base URL</label>
+        <input type="text" id="custom-url-input"
+          placeholder="e.g. yourschool.instructure.com" autocomplete="off" />
+        <p class="hint">Enter just the domain — no https://, no trailing slash.</p>
+      </div>
+
+      <!-- Canvas token -->
+      <div class="form-group">
+        <label for="token-input">Canvas Access Token</label>
+        <input type="password" id="token-input"
+          placeholder="Paste your token here" autocomplete="off" />
+        <p class="hint">
+          <strong>How to get your token:</strong><br />
+          1. Log in to Canvas &rarr; click your profile picture &rarr; <em>Settings</em><br />
+          2. Scroll to <em>Approved Integrations</em> &rarr; click <strong>+ New Access Token</strong><br />
+          3. Name it anything (e.g. "Homework Tracker") &rarr; click <strong>Generate Token</strong><br />
+          4. Copy the token and paste it above — it won't be shown again.
+        </p>
+      </div>
+
+      <!-- Google Classroom toggle -->
+      <div class="form-group toggle-row">
+        <div>
+          <div class="toggle-label">Google Classroom</div>
+          <div class="toggle-sublabel">Optional — requires additional setup</div>
+        </div>
+        <label class="toggle-switch" title="Enable Google Classroom">
+          <input type="checkbox" id="classroom-toggle" />
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+
+      <div class="form-group classroom-fields hidden" id="classroom-fields">
+        <label for="classroom-key-input">Google API Key</label>
+        <input type="password" id="classroom-key-input"
+          placeholder="Paste your Google API key" autocomplete="off" />
+        <p class="hint">
+          <strong>Note:</strong> Google Classroom requires OAuth 2.0 for student data access.
+          Full Google Classroom integration is coming soon. For now this field is saved for future use.
+        </p>
+      </div>
+
+      <div id="modal-error" class="modal-error hidden"></div>
+
+      <div class="modal-actions">
+        <button class="btn btn-secondary" id="modal-cancel-btn">Cancel</button>
+        <button class="btn btn-primary" id="modal-save-btn">Save &amp; Load</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
