@@ -90,6 +90,7 @@ body {
 .columns-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
+  align-items: start;
   gap: 16px;
 }
 
@@ -117,6 +118,8 @@ body {
   background: var(--surface); border: 1px solid var(--border);
   border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow);
   display: flex; flex-direction: column;
+  max-height: calc(100vh - 90px);
+  overflow-y: auto;
   transition: background var(--tr), border-color var(--tr);
 }
 .course-header {
@@ -124,6 +127,8 @@ body {
   border-bottom: 1px solid var(--border);
   border-left: 3px solid var(--course-color, #888);
   display: flex; align-items: flex-start; justify-content: space-between; gap: 8px;
+  position: sticky; top: 0; z-index: 1;
+  background: var(--surface);
 }
 .course-header-text { flex: 1; min-width: 0; }
 .course-name  { font-size: 13px; font-weight: 600; line-height: 1.35; word-break: break-word; }
