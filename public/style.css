@@ -295,6 +295,11 @@ body {
 }
 
 /* ─── Custom class column ────────────────────────────────────────────────── */
+
+/* Custom columns should NOT stretch the list — keep Add button just below assignments */
+.custom-col { height: auto; }
+.custom-col .assignment-list { flex: 0 0 auto; }
+
 .assignment-checkbox {
   width: 14px; height: 14px; flex-shrink: 0; margin-top: 3px;
   accent-color: var(--c-later); cursor: pointer;
