@@ -122,9 +122,12 @@ function isVisibleByTimeframe(a) {
   if (appState.customTimeframe === 0) return true;  // all time
   if (!a.due_at) return true;                        // no date = always show
   if (a.done)    return true;                        // done = always show
-  const dueMs  = new Date(a.due_at).getTime();
-  const cutoff = Date.now() + appState.customTimeframe * 86_400_000;
-  return dueMs <= cutoff; // overdue or within window
+  const dueMs    = new Date(a.due_at).getTime();
+  const now      = Date.now();
+  const windowMs = appState.customTimeframe * 86_400_000;
+  // Show assignments within the window both ahead AND behind today
+  // e.g. 7-day window → anything due between 7 days ago and 7 days from now
+  return dueMs >= (now - windowMs) && dueMs <= (now + windowMs);
 }
 
 // ─── Due-date helpers ─────────────────────────────────────────────────────────
@@ -733,7 +736,8 @@ function switchAddTab(tab) {
 }
 
 async function handleAiParse() {
-  const text = document.getElementById('ai-paste-input').value.trim();
+  const text    = document.getElementById('ai-paste-input').value.trim();
+  const context = document.getElementById('ai-context-input').value.trim();
   if (!text) { showAddError('Paste some text first'); return; }
 
   const parseBtn = document.getElementById('ai-parse-btn');
@@ -745,7 +749,7 @@ async function handleAiParse() {
     const result = await apiFetch('/api/ai/parse-class', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text }),
+      body: JSON.stringify({ text, context: context || undefined }),
     });
 
     aiParsedData = result;

@@ -363,7 +363,7 @@ app.post('/api/ai/parse-class', async (req, res) => {
     return res.status(503).json({ error: 'AI is not configured. Add GROQ_API_KEY to Render environment variables.' });
   }
 
-  const { text } = req.body;
+  const { text, context } = req.body;
   if (!text?.trim()) return res.status(400).json({ error: 'No text provided' });
 
   const now   = new Date();
@@ -382,8 +382,12 @@ app.post('/api/ai/parse-class', async (req, res) => {
 Required output format (strict):
 {"className":"class name","assignments":[{"name":"assignment description","due_at":"YYYY-MM-DDTHH:mm:ssZ or null"}]}`;
 
-  const userPrompt = `Today is ${today}. Extract every homework assignment from the text below.
+  const contextBlock = context?.trim()
+    ? `\n═══ SPECIAL INSTRUCTIONS FROM THE USER (highest priority — override defaults where relevant) ═══\n${context.trim()}\n`
+    : '';
 
+  const userPrompt = `Today is ${today}. Extract every homework assignment from the text below.
+${contextBlock}
 ═══ INPUT FORMATS ═══
 The text could be any of:
 • Tab-separated (TSV) copied from Google Sheets — columns like Date, Day, Topic, Homework/HW

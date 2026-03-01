@@ -193,7 +193,11 @@
       <div id="add-ai-form" class="hidden">
         <div class="form-group">
           <label for="ai-paste-input">Paste your class info</label>
-          <textarea id="ai-paste-input" rows="6" placeholder="Paste anything — a Google Sheets table, syllabus, assignment list, screenshot text… AI will figure it out."></textarea>
+          <textarea id="ai-paste-input" rows="5" placeholder="Paste anything — a Google Sheets table, syllabus, assignment list, screenshot text… AI will figure it out."></textarea>
+        </div>
+        <div class="form-group">
+          <label for="ai-context-input">Additional instructions <span class="text-muted">(optional)</span></label>
+          <textarea id="ai-context-input" rows="3" placeholder="e.g. Dates shown are when homework is assigned — the actual due date is the next class. Tests are due on the date listed. Class meets Monday, Tuesday, and Thursday."></textarea>
         </div>
         <button class="btn btn-secondary" id="ai-parse-btn" style="width:100%;margin-bottom:12px;">Parse with AI</button>
 
@@ -277,15 +281,15 @@
       <!-- Custom class time frame — shown for both modes -->
       <div class="section-divider"></div>
       <div class="form-group" style="margin-bottom:0;">
-        <label for="custom-timeframe-select">Custom class look-ahead</label>
+        <label for="custom-timeframe-select">Custom class window</label>
         <select id="custom-timeframe-select">
-          <option value="7">Next 7 days</option>
-          <option value="14">Next 14 days</option>
-          <option value="30" selected>Next 30 days</option>
-          <option value="60">Next 60 days</option>
+          <option value="7">± 7 days</option>
+          <option value="14">± 14 days</option>
+          <option value="30" selected>± 30 days</option>
+          <option value="60">± 60 days</option>
           <option value="0">All time</option>
         </select>
-        <p class="hint">How far ahead to show assignments in custom classes.</p>
+        <p class="hint">Show assignments due within this window before and after today. Past-due items older than the window are hidden.</p>
       </div>
 
       <!-- Hidden classes — shown for both modes -->
