@@ -7,6 +7,7 @@ const crypto     = require('crypto');
 const bcrypt     = require('bcrypt');
 const jwt        = require('jsonwebtoken');
 const { createClient } = require('@supabase/supabase-js');
+const { GoogleGenAI } = require('@google/genai');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -366,7 +367,7 @@ app.post('/api/ai/parse-class', async (req, res) => {
   const { text } = req.body;
   if (!text?.trim()) return res.status(400).json({ error: 'No text provided' });
 
-  const year = new Date().getFullYear();
+  const year  = new Date().getFullYear();
   const today = new Date().toISOString().slice(0, 10);
 
   const prompt = `You are a homework tracker assistant. Today is ${today}.
@@ -390,30 +391,14 @@ Rules:
 Text:
 ${text.slice(0, 16000)}`;
 
-  const callGemini = () => axios.post(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_KEY}`,
-    {
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.1, maxOutputTokens: 8192 },
-    }
-  );
-
   try {
-    let response;
-    try {
-      response = await callGemini();
-    } catch (firstErr) {
-      // Retry once after 3 s on rate-limit (429) or transient server error
-      const status = firstErr.response?.status;
-      if (status === 429 || (status >= 500 && status < 600)) {
-        await new Promise(r => setTimeout(r, 3000));
-        response = await callGemini();
-      } else {
-        throw firstErr;
-      }
-    }
+    const ai       = new GoogleGenAI({ apiKey: GEMINI_KEY });
+    const response = await ai.models.generateContent({
+      model:    'gemini-2.0-flash',
+      contents: prompt,
+    });
 
-    const raw = response.data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const raw = response.text || '';
     console.log('[AI raw response]', raw.slice(0, 300));
 
     // Robust extraction: find the outermost { ... } in the response
@@ -429,11 +414,10 @@ ${text.slice(0, 16000)}`;
     res.json({ className: parsed.className, assignments: parsed.assignments });
   } catch (err) {
     console.error('[AI parse error]', err.message);
-    const httpStatus = err.response?.status;
-    const msg = httpStatus === 429
+    const msg = err.message?.includes('429') || err.status === 429
       ? 'AI rate limit hit — please wait a moment and try again.'
       : `AI parse failed: ${err.message}`;
-    res.status(httpStatus === 429 ? 429 : 500).json({ error: msg });
+    res.status(500).json({ error: msg });
   }
 });
 
