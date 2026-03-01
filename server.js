@@ -23,11 +23,21 @@ function canvasBase(req) {
 
 function handleError(res, err) {
   const status = err.response?.status || 500;
-  const message =
-    err.response?.data?.errors?.[0]?.message ||
+  const canvasError = err.response?.data?.errors?.[0];
+  let message =
+    canvasError?.message ||
+    err.response?.data?.error ||
     err.response?.data?.message ||
     err.message ||
     'Unknown error';
+
+  // Give a clearer hint when the token is expired
+  if (canvasError?.expired_at || message.toLowerCase().includes('expired')) {
+    message =
+      'Your Canvas token is expired or invalid. Go to Canvas → Settings → Approved Integrations, delete the old token, and generate a new one — leave the expiry date blank.';
+  }
+
+  console.error('[Canvas API error]', status, err.response?.data || err.message);
   res.status(status).json({ error: message });
 }
 
@@ -107,6 +117,11 @@ app.get('/api/canvas/colors', async (req, res) => {
     res.json({});
   }
 });
+
+// ---------------------------------------------------------------------------
+// Health check — Render pings this to confirm the service is up
+// ---------------------------------------------------------------------------
+app.get('/healthz', (req, res) => res.json({ ok: true }));
 
 // ---------------------------------------------------------------------------
 // Catch-all: serve index.html for any unmatched route (SPA behaviour)
