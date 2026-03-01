@@ -1,135 +1,324 @@
-const express = require('express');
-const axios = require('axios');
-const path = require('path');
+'use strict';
 
-const app = express();
+const express    = require('express');
+const axios      = require('axios');
+const path       = require('path');
+const crypto     = require('crypto');
+const bcrypt     = require('bcrypt');
+const jwt        = require('jsonwebtoken');
+const { createClient } = require('@supabase/supabase-js');
+
+const app  = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// ---------------------------------------------------------------------------
-// Helper: forward Canvas API requests from the browser to Canvas.
-// The Canvas token is passed as a custom header so it never appears in URLs.
-// ---------------------------------------------------------------------------
-function canvasHeaders(token) {
+// ─── Supabase ─────────────────────────────────────────────────────────────────
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_KEY
+);
+
+// ─── AES-256-GCM — encrypt Canvas tokens at rest ─────────────────────────────
+const ENC_KEY = Buffer.from(
+  process.env.ENCRYPTION_KEY || '0'.repeat(64),
+  'hex'
+);
+
+function encrypt(plaintext) {
+  const iv     = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv('aes-256-gcm', ENC_KEY, iv);
+  const enc    = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()]);
+  const tag    = cipher.getAuthTag();
+  return [iv.toString('hex'), tag.toString('hex'), enc.toString('hex')].join(':');
+}
+
+function decrypt(stored) {
+  const [ivHex, tagHex, encHex] = stored.split(':');
+  const dec = crypto.createDecipheriv('aes-256-gcm', ENC_KEY, Buffer.from(ivHex, 'hex'));
+  dec.setAuthTag(Buffer.from(tagHex, 'hex'));
+  return Buffer.concat([dec.update(Buffer.from(encHex, 'hex')), dec.final()]).toString('utf8');
+}
+
+// ─── JWT ──────────────────────────────────────────────────────────────────────
+const JWT_SECRET = process.env.JWT_SECRET || 'dev-only-change-in-prod';
+
+function signJWT(userId) {
+  return jwt.sign({ sub: userId }, JWT_SECRET, { expiresIn: '30d' });
+}
+function verifyJWT(token) {
+  return jwt.verify(token, JWT_SECRET);
+}
+
+// ─── Auth middleware ──────────────────────────────────────────────────────────
+function requireAuth(req, res, next) {
+  const header = req.headers.authorization;
+  if (!header?.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Sign in required' });
+  }
+  try {
+    req.userId = verifyJWT(header.slice(7)).sub;
+    next();
+  } catch {
+    res.status(401).json({ error: 'Session expired — please sign in again' });
+  }
+}
+
+// ─── Canvas helpers ───────────────────────────────────────────────────────────
+function canvasHeader(token) {
   return { Authorization: `Bearer ${token}` };
 }
 
-function canvasBase(req) {
-  // Fallback to Dublin USD if the client didn't specify a URL
-  return req.headers['x-canvas-url'] || 'https://dublinusd.instructure.com';
+// Resolve which Canvas token/URL to use: JWT (stored) or session header
+async function resolveCanvas(req) {
+  const authHeader = req.headers.authorization;
+  if (authHeader?.startsWith('Bearer ')) {
+    const payload = verifyJWT(authHeader.slice(7));
+    const { data, error } = await supabase
+      .from('users')
+      .select('canvas_token_enc, canvas_url')
+      .eq('id', payload.sub)
+      .single();
+    if (error || !data) throw new Error('User not found');
+    return { token: decrypt(data.canvas_token_enc), baseUrl: `https://${data.canvas_url}` };
+  }
+  const token = req.headers['x-canvas-token'];
+  if (!token) throw new Error('Canvas token required');
+  return {
+    token,
+    baseUrl: req.headers['x-canvas-url'] || 'https://dublinusd.instructure.com',
+  };
 }
 
-function handleError(res, err) {
-  const status = err.response?.status || 500;
-  const canvasError = err.response?.data?.errors?.[0];
+function handleCanvasError(res, err) {
+  const status     = err.response?.status || 500;
+  const canvasErr  = err.response?.data?.errors?.[0];
   let message =
-    canvasError?.message ||
+    canvasErr?.message ||
     err.response?.data?.error ||
     err.response?.data?.message ||
     err.message ||
     'Unknown error';
 
-  // Give a clearer hint when the token is expired
-  if (canvasError?.expired_at || message.toLowerCase().includes('expired')) {
+  if (canvasErr?.expired_at || message.toLowerCase().includes('expired')) {
     message =
-      'Your Canvas token is expired or invalid. Go to Canvas → Settings → Approved Integrations, delete the old token, and generate a new one — leave the expiry date blank.';
+      'Your Canvas token is expired. Go to Canvas → Settings → Approved Integrations, ' +
+      'delete the old token, generate a new one with no expiry date, and update it here.';
   }
-
-  console.error('[Canvas API error]', status, err.response?.data || err.message);
+  console.error('[Canvas error]', status, err.response?.data || err.message);
   res.status(status).json({ error: message });
 }
 
-// ---------------------------------------------------------------------------
-// GET /api/canvas/courses
-// Returns active courses for the authenticated student.
-// ---------------------------------------------------------------------------
+// ─── Auth routes ──────────────────────────────────────────────────────────────
+
+// Verify a Canvas token and return the user's Canvas email + name
+app.post('/api/auth/check-token', async (req, res) => {
+  const { canvasToken, canvasUrl = 'dublinusd.instructure.com' } = req.body;
+  if (!canvasToken) return res.status(400).json({ error: 'Canvas token required' });
+  try {
+    const { data } = await axios.get(
+      `https://${canvasUrl}/api/v1/users/self/profile`,
+      { headers: canvasHeader(canvasToken) }
+    );
+    const email = data.primary_email || data.login_id;
+    if (!email) throw new Error('Canvas did not return an email for this account');
+    res.json({ email, name: data.name });
+  } catch (err) {
+    handleCanvasError(res, err);
+  }
+});
+
+// Register — verify Canvas token, get email, store hashed password + encrypted token
+app.post('/api/auth/register', async (req, res) => {
+  const { canvasToken, canvasUrl = 'dublinusd.instructure.com', password } = req.body;
+  if (!canvasToken || !password)
+    return res.status(400).json({ error: 'Canvas token and password required' });
+  if (password.length < 6)
+    return res.status(400).json({ error: 'Password must be at least 6 characters' });
+
+  try {
+    const { data: profile } = await axios.get(
+      `https://${canvasUrl}/api/v1/users/self/profile`,
+      { headers: canvasHeader(canvasToken) }
+    );
+    const email = profile.primary_email || profile.login_id;
+    if (!email) throw new Error('Canvas did not return an email for this account');
+
+    const passwordHash   = await bcrypt.hash(password, 12);
+    const canvasTokenEnc = encrypt(canvasToken);
+
+    const { data, error } = await supabase
+      .from('users')
+      .insert({
+        email:            email.toLowerCase(),
+        password_hash:    passwordHash,
+        canvas_token_enc: canvasTokenEnc,
+        canvas_url:       canvasUrl,
+      })
+      .select('id')
+      .single();
+
+    if (error) {
+      if (error.code === '23505')
+        return res.status(409).json({ error: 'An account already exists for this email. Please sign in instead.' });
+      throw error;
+    }
+    res.json({ token: signJWT(data.id), email });
+  } catch (err) {
+    if (err.response) return handleCanvasError(res, err);
+    console.error('[register error]', err.message);
+    res.status(500).json({ error: err.message || 'Registration failed' });
+  }
+});
+
+// Login — email + password → JWT
+app.post('/api/auth/login', async (req, res) => {
+  const { email, password } = req.body;
+  if (!email || !password)
+    return res.status(400).json({ error: 'Email and password required' });
+
+  const { data: user } = await supabase
+    .from('users')
+    .select('id, password_hash')
+    .eq('email', email.toLowerCase().trim())
+    .single();
+
+  if (!user) return res.status(401).json({ error: 'No account found for that email' });
+
+  const match = await bcrypt.compare(password, user.password_hash);
+  if (!match) return res.status(401).json({ error: 'Incorrect password' });
+
+  res.json({ token: signJWT(user.id) });
+});
+
+// Reset password via Canvas token — proves identity, sets new password + updates stored token
+app.post('/api/auth/reset-password', async (req, res) => {
+  const { canvasToken, canvasUrl = 'dublinusd.instructure.com', newPassword } = req.body;
+  if (!canvasToken || !newPassword)
+    return res.status(400).json({ error: 'Canvas token and new password required' });
+  if (newPassword.length < 6)
+    return res.status(400).json({ error: 'Password must be at least 6 characters' });
+
+  try {
+    const { data: profile } = await axios.get(
+      `https://${canvasUrl}/api/v1/users/self/profile`,
+      { headers: canvasHeader(canvasToken) }
+    );
+    const email = profile.primary_email || profile.login_id;
+    if (!email) throw new Error('Canvas did not return an email');
+
+    const { data: user } = await supabase
+      .from('users')
+      .select('id')
+      .eq('email', email.toLowerCase())
+      .single();
+
+    if (!user) return res.status(404).json({ error: 'No account found for this Canvas email' });
+
+    const passwordHash   = await bcrypt.hash(newPassword, 12);
+    const canvasTokenEnc = encrypt(canvasToken);
+
+    await supabase
+      .from('users')
+      .update({ password_hash: passwordHash, canvas_token_enc: canvasTokenEnc, canvas_url: canvasUrl, updated_at: new Date().toISOString() })
+      .eq('id', user.id);
+
+    res.json({ token: signJWT(user.id), email });
+  } catch (err) {
+    if (err.response) return handleCanvasError(res, err);
+    res.status(500).json({ error: err.message || 'Reset failed' });
+  }
+});
+
+// Current user info
+app.get('/api/auth/me', requireAuth, async (req, res) => {
+  const { data } = await supabase
+    .from('users')
+    .select('email, canvas_url, hidden_courses')
+    .eq('id', req.userId)
+    .single();
+  if (!data) return res.status(404).json({ error: 'User not found' });
+  res.json(data);
+});
+
+// Update stored Canvas token (e.g. after expiry)
+app.patch('/api/user/canvas-token', requireAuth, async (req, res) => {
+  const { canvasToken, canvasUrl } = req.body;
+  if (!canvasToken) return res.status(400).json({ error: 'Canvas token required' });
+  try {
+    // Verify the new token before saving
+    await axios.get(
+      `https://${canvasUrl || 'dublinusd.instructure.com'}/api/v1/users/self/profile`,
+      { headers: canvasHeader(canvasToken) }
+    );
+    await supabase
+      .from('users')
+      .update({ canvas_token_enc: encrypt(canvasToken), canvas_url: canvasUrl || 'dublinusd.instructure.com', updated_at: new Date().toISOString() })
+      .eq('id', req.userId);
+    res.json({ ok: true });
+  } catch (err) {
+    if (err.response) return handleCanvasError(res, err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Update hidden courses list
+app.patch('/api/user/hidden-courses', requireAuth, async (req, res) => {
+  const { hiddenCourses } = req.body;
+  if (!Array.isArray(hiddenCourses))
+    return res.status(400).json({ error: 'hiddenCourses must be an array' });
+  const { error } = await supabase
+    .from('users')
+    .update({ hidden_courses: hiddenCourses, updated_at: new Date().toISOString() })
+    .eq('id', req.userId);
+  if (error) return res.status(500).json({ error: 'Could not update hidden courses' });
+  res.json({ ok: true });
+});
+
+// ─── Canvas API proxy ─────────────────────────────────────────────────────────
+
 app.get('/api/canvas/courses', async (req, res) => {
-  const token = req.headers['x-canvas-token'];
-  if (!token) return res.status(401).json({ error: 'Canvas token required' });
-
   try {
-    const response = await axios.get(`${canvasBase(req)}/api/v1/courses`, {
-      headers: canvasHeaders(token),
-      params: {
-        enrollment_state: 'active',
-        enrollment_type: 'student',
-        per_page: 100,
-        include: ['term'],
-      },
+    const { token, baseUrl } = await resolveCanvas(req);
+    const { data } = await axios.get(`${baseUrl}/api/v1/courses`, {
+      headers: canvasHeader(token),
+      params: { enrollment_state: 'active', enrollment_type: 'student', per_page: 100, include: ['term'] },
     });
-
-    // Only surface courses that are fully available (not concluded/restricted)
-    const courses = response.data.filter(
-      (c) => c.workflow_state === 'available' && !c.access_restricted_by_date
-    );
-
-    res.json(courses);
+    res.json(data.filter(c => c.workflow_state === 'available' && !c.access_restricted_by_date));
   } catch (err) {
-    handleError(res, err);
+    if (err.response) return handleCanvasError(res, err);
+    res.status(500).json({ error: err.message });
   }
 });
 
-// ---------------------------------------------------------------------------
-// GET /api/canvas/courses/:courseId/assignments
-// Returns upcoming assignments for a single course.
-// ---------------------------------------------------------------------------
 app.get('/api/canvas/courses/:courseId/assignments', async (req, res) => {
-  const token = req.headers['x-canvas-token'];
-  if (!token) return res.status(401).json({ error: 'Canvas token required' });
-
   try {
-    const response = await axios.get(
-      `${canvasBase(req)}/api/v1/courses/${req.params.courseId}/assignments`,
-      {
-        headers: canvasHeaders(token),
-        params: {
-          per_page: 100,
-          order_by: 'due_at',
-          // 'upcoming' = not yet submitted AND due in the future
-          bucket: 'upcoming',
-        },
-      }
+    const { token, baseUrl } = await resolveCanvas(req);
+    const { data } = await axios.get(
+      `${baseUrl}/api/v1/courses/${req.params.courseId}/assignments`,
+      { headers: canvasHeader(token), params: { per_page: 100, order_by: 'due_at', bucket: 'upcoming' } }
     );
-    res.json(response.data);
+    res.json(data);
   } catch (err) {
-    handleError(res, err);
+    if (err.response) return handleCanvasError(res, err);
+    res.status(500).json({ error: err.message });
   }
 });
 
-// ---------------------------------------------------------------------------
-// GET /api/canvas/colors
-// Returns the user's custom course colour mapping from Canvas.
-// ---------------------------------------------------------------------------
 app.get('/api/canvas/colors', async (req, res) => {
-  const token = req.headers['x-canvas-token'];
-  if (!token) return res.status(401).json({ error: 'Canvas token required' });
-
   try {
-    const response = await axios.get(
-      `${canvasBase(req)}/api/v1/users/self/colors`,
-      { headers: canvasHeaders(token) }
-    );
-    res.json(response.data.custom_colors || {});
-  } catch (err) {
-    // Colour fetch failing is non-fatal — return empty map
+    const { token, baseUrl } = await resolveCanvas(req);
+    const { data } = await axios.get(`${baseUrl}/api/v1/users/self/colors`, { headers: canvasHeader(token) });
+    res.json(data.custom_colors || {});
+  } catch {
     res.json({});
   }
 });
 
-// ---------------------------------------------------------------------------
-// Health check — Render pings this to confirm the service is up
-// ---------------------------------------------------------------------------
-app.get('/healthz', (req, res) => res.json({ ok: true }));
+// ─── Health check + SPA fallback ──────────────────────────────────────────────
+app.get('/healthz', (_, res) => res.json({ ok: true }));
 
-// ---------------------------------------------------------------------------
-// Catch-all: serve index.html for any unmatched route (SPA behaviour)
-// ---------------------------------------------------------------------------
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
+app.get('*', (_, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
-app.listen(PORT, () => {
-  console.log(`Canvas Homework Tracker running on port ${PORT}`);
-});
+app.listen(PORT, () => console.log(`Canvas Homework Tracker on port ${PORT}`));
