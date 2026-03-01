@@ -728,6 +728,8 @@ function switchAddTab(tab) {
   document.getElementById('add-ai-form').classList.toggle('hidden', tab !== 'ai');
   document.getElementById('ai-parse-btn').classList.toggle('hidden', tab !== 'ai' || aiParsedData !== null);
   document.getElementById('add-class-save-btn').textContent = tab === 'ai' && !aiParsedData ? 'Parse first' : 'Add Class';
+  // Clear shared error when switching so it doesn't bleed across tabs
+  document.getElementById('add-class-error').classList.add('hidden');
 }
 
 async function handleAiParse() {

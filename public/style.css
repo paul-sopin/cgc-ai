@@ -36,6 +36,7 @@ body {
   transition: background var(--tr), color var(--tr);
 }
 .text-muted { color: var(--text-muted); }
+.hidden { display: none !important; }
 
 /* ─── Top bar ────────────────────────────────────────────────────────────── */
 .topbar {

@@ -366,42 +366,47 @@ app.post('/api/ai/parse-class', async (req, res) => {
   const { text } = req.body;
   if (!text?.trim()) return res.status(400).json({ error: 'No text provided' });
 
+  const year = new Date().getFullYear();
   const today = new Date().toISOString().slice(0, 10);
-  const prompt = `You are a homework tracker assistant. Today is ${today}.
-Parse the following text (could be a pasted spreadsheet, syllabus, assignment list, or schedule) and extract all assignments and their due dates.
 
-Return ONLY valid JSON — no markdown, no code fences, no extra text — in this exact format:
-{
-  "className": "short clean class name like 'AP Calculus' or 'US History'",
-  "assignments": [
-    {"name": "assignment name", "due_at": "ISO 8601 UTC datetime string, or null if no date found"}
-  ]
-}
+  const prompt = `You are a homework tracker assistant. Today is ${today}.
+
+Extract all homework assignments from the text below and return them as JSON.
+
+The text may be in any format: tab-separated (TSV) from Google Sheets, a syllabus, a simple list, or a schedule table. Common column names include "Homework", "HW", "Assignment", "Due", "Section/Topic". Row headers like day-of-week or "No School" rows should be skipped.
+
+Return ONLY a raw JSON object — no markdown, no code fences, no extra words before or after. Format:
+{"className":"short class name","assignments":[{"name":"assignment description","due_at":"YYYY-MM-DDTHH:mm:ssZ or null"}]}
 
 Rules:
-- className should be short and clean. If unclear, use "Custom Class".
-- Include all assignments, homework, projects, quizzes, tests.
-- Convert dates to ISO 8601 UTC format. If only month/day given, assume year ${new Date().getFullYear()}.
-- If a time is not given, use 23:59:00 local time (output as UTC equivalent).
-- Ignore grades, point values, completion checkmarks.
-- due_at must be null if no date is identifiable.
+- className: infer from content (e.g. "AP Calculus AB", "US History"). Use "Custom Class" if unclear.
+- Include every distinct homework item, problem set, worksheet, quiz, and test.
+- For TSV data: the "Homework:" or "HW" column contains the assignment. The date for that assignment is in the same row (look for a date column like "Date" with values like "1/6" or "M 1/5").
+- Dates like "1/6" or "3/5" mean month/day of year ${year} (or ${year + 1} if the month is earlier than today's month and the context implies a future semester). Output as ISO 8601 UTC: "YYYY-MM-DDT23:59:00Z".
+- If no date is found for an assignment, use null.
+- Skip rows where the homework cell is blank or says "No School".
+- Do not include classwork, quizzes column entries, or schedule notes as assignments UNLESS they look like graded work (e.g. a quiz or test).
 
-Text to parse:
-${text.slice(0, 8000)}`;
+Text:
+${text.slice(0, 16000)}`;
 
   try {
     const { data } = await axios.post(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_KEY}`,
       {
         contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.1, maxOutputTokens: 4096 },
+        generationConfig: { temperature: 0.1, maxOutputTokens: 8192 },
       }
     );
 
     const raw = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    // Strip any accidental markdown fences
-    const jsonStr = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
-    const parsed = JSON.parse(jsonStr);
+    console.log('[AI raw response]', raw.slice(0, 300));
+
+    // Robust extraction: find the outermost { ... } in the response
+    const start = raw.indexOf('{');
+    const end   = raw.lastIndexOf('}');
+    if (start === -1 || end === -1) throw new Error('No JSON object found in AI response');
+    const parsed = JSON.parse(raw.slice(start, end + 1));
 
     if (!parsed.className || !Array.isArray(parsed.assignments)) {
       throw new Error('Unexpected AI response format');
@@ -410,7 +415,7 @@ ${text.slice(0, 8000)}`;
     res.json({ className: parsed.className, assignments: parsed.assignments });
   } catch (err) {
     console.error('[AI parse error]', err.message);
-    res.status(500).json({ error: 'AI could not parse the text. Try pasting more structured data, or use the Manual tab.' });
+    res.status(500).json({ error: `AI parse failed: ${err.message}` });
   }
 });
 
