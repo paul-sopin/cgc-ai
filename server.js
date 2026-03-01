@@ -381,7 +381,7 @@ Rules:
 - className: infer from content (e.g. "AP Calculus AB"). Use "Custom Class" if unclear.
 - Include homework, problem sets, worksheets, quizzes, and tests.
 - TSV data: find the Homework/HW column value. The date is in the same row's Date column (e.g. "1/6" or "M 1/5").
-- Dates like "1/6" mean month/day of ${year} (use ${year + 1} if month < current month and context implies next semester). Format: "YYYY-MM-DDT23:59:00Z".
+- Dates like "1/6" or "M 1/5" mean month/day. To assign the correct year, examine ALL dates in the document together to understand the academic year the schedule covers. School schedules typically span Aug–Dec (fall) then Jan–Jun (spring) of the next calendar year — so a schedule that goes from Aug to Jun crosses a year boundary. Assign each date the year that fits the natural chronological progression (e.g. if dates go Aug→Nov→Jan→May, the Aug–Nov dates are one year and Jan–May are the next). Use today (${today}) only as a rough anchor to determine which school year this is — do NOT blindly shift all dates to the current or next year. Format: "YYYY-MM-DDT23:59:00Z".
 - due_at is null if no date found.
 - Skip rows where homework cell is blank or says "No School".
 - Do not include classwork or schedule notes unless clearly a graded quiz/test.
