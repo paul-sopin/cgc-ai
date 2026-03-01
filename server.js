@@ -413,9 +413,11 @@ ${text.slice(0, 16000)}`;
 
     res.json({ className: parsed.className, assignments: parsed.assignments });
   } catch (err) {
-    console.error('[AI parse error]', err.message);
-    const msg = err.message?.includes('429') || err.status === 429
-      ? 'AI rate limit hit — please wait a moment and try again.'
+    // Log the full error so Render logs show the real Gemini error message
+    console.error('[AI parse error] status:', err.status, '| message:', err.message, '| details:', JSON.stringify(err.errorDetails ?? err.response?.data ?? ''));
+    const is429 = err.status === 429 || err.message?.includes('429') || err.message?.includes('RESOURCE_EXHAUSTED');
+    const msg = is429
+      ? `AI quota error — try creating a fresh API key at aistudio.google.com. (Gemini: ${err.message})`
       : `AI parse failed: ${err.message}`;
     res.status(500).json({ error: msg });
   }
