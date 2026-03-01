@@ -366,25 +366,65 @@ app.post('/api/ai/parse-class', async (req, res) => {
   const { text } = req.body;
   if (!text?.trim()) return res.status(400).json({ error: 'No text provided' });
 
-  const year  = new Date().getFullYear();
-  const today = new Date().toISOString().slice(0, 10);
+  const now   = new Date();
+  const year  = now.getFullYear();
+  const month = now.getMonth() + 1; // 1–12
+  const today = now.toISOString().slice(0, 10);
 
-  const systemPrompt = `You are a homework tracker assistant. Extract assignments from text and return ONLY a valid JSON object — no markdown, no explanation, nothing else.
+  // Academic year split: if we're currently in fall (Aug–Dec), spring dates are year+1.
+  // If we're in spring/summer (Jan–Jul), fall dates were year−1.
+  const inFall     = month >= 8;
+  const fallYear   = inFall ? year     : year - 1;
+  const springYear = inFall ? year + 1 : year;
 
-Format: {"className":"class name","assignments":[{"name":"assignment description","due_at":"YYYY-MM-DDTHH:mm:ssZ or null"}]}`;
+  const systemPrompt = `You are a homework tracker assistant. Extract assignments from pasted text and return ONLY a valid JSON object — no markdown, no explanation, nothing else.
 
-  const userPrompt = `Today is ${today}. Extract all homework assignments from the text below.
+Required output format (strict):
+{"className":"class name","assignments":[{"name":"assignment description","due_at":"YYYY-MM-DDTHH:mm:ssZ or null"}]}`;
 
-The text may be tab-separated (TSV from Google Sheets), a syllabus, list, or schedule. Column names to look for: "Homework", "HW", "Assignment", "Due".
+  const userPrompt = `Today is ${today}. Extract every homework assignment from the text below.
 
-Rules:
-- className: infer from content (e.g. "AP Calculus AB"). Use "Custom Class" if unclear.
-- Include homework, problem sets, worksheets, quizzes, and tests.
-- TSV data: find the Homework/HW column value. The date is in the same row's Date column (e.g. "1/6" or "M 1/5").
-- Dates like "1/6" or "M 1/5" mean month/day. To assign the correct year, examine ALL dates in the document together to understand the academic year the schedule covers. School schedules typically span Aug–Dec (fall) then Jan–Jun (spring) of the next calendar year — so a schedule that goes from Aug to Jun crosses a year boundary. Assign each date the year that fits the natural chronological progression (e.g. if dates go Aug→Nov→Jan→May, the Aug–Nov dates are one year and Jan–May are the next). Use today (${today}) only as a rough anchor to determine which school year this is — do NOT blindly shift all dates to the current or next year. Format: "YYYY-MM-DDT23:59:00Z".
-- due_at is null if no date found.
-- Skip rows where homework cell is blank or says "No School".
-- Do not include classwork or schedule notes unless clearly a graded quiz/test.
+═══ INPUT FORMATS ═══
+The text could be any of:
+• Tab-separated (TSV) copied from Google Sheets — columns like Date, Day, Topic, Homework/HW
+• A course syllabus with inline due dates
+• A plain numbered or bulleted assignment list
+• Unstructured mixed text
+
+═══ WHAT TO INCLUDE ═══
+• Homework problems (e.g. "p.400 #1-10", "6.10 + 6.14 topic questions", "WS 3.4")
+• Problem sets, worksheets, readings with specific page/question numbers
+• Quizzes and tests — use the date they occur as due_at
+• Projects or essays with explicit due dates
+
+═══ WHAT TO SKIP ═══
+• Rows where the homework cell is blank, "--", "N/A", "none", or "No School"
+• Pure lecture topics or class notes (e.g. "Introduction to derivatives") with no associated task
+• Administrative entries like "Start of semester", "Holiday", "Review day", "Return quiz" unless a graded item is also listed
+• Column headers (the first row of a TSV table)
+
+═══ CLASS NAME (className field) ═══
+• Infer from content, headers, or document title — e.g. "AP Calculus AB", "AP Biology", "English 11 Honors"
+• If multiple subjects appear, use the dominant one
+• Fall back to "Custom Class" only if the subject is completely unidentifiable
+
+═══ PARSING TSV / GOOGLE SHEETS DATA ═══
+• Row 1 is the header — identify column positions from it, do not output it as an assignment
+• Date column: named "Date", "Day", or similar — values like "M 1/5" mean "Monday, January 5" — strip any leading day-of-week letter/abbreviation and use only the M/D numeric part
+• Homework column: named "Homework", "HW", "Assignment", "Due", or similar — this is the assignment name
+• Each non-header row is one class day; pair that row's homework value with that row's date
+• If a homework cell spans multiple tasks (semicolons, commas, line breaks), output each as a separate assignment entry with the same date
+
+═══ DATE → YEAR CONVERSION (apply to every date, no exceptions) ═══
+Today is ${today}. The active school year is Fall ${fallYear} → Spring ${springYear}.
+Use this exact lookup — month number determines the year, full stop:
+  Jan (1)  → ${springYear}    Feb (2)  → ${springYear}    Mar (3)  → ${springYear}
+  Apr (4)  → ${springYear}    May (5)  → ${springYear}    Jun (6)  → ${springYear}
+  Jul (7)  → ${springYear}    Aug (8)  → ${fallYear}      Sep (9)  → ${fallYear}
+  Oct (10) → ${fallYear}      Nov (11) → ${fallYear}      Dec (12) → ${fallYear}
+Do NOT deviate from this table based on surrounding context, guessing, or proximity to today.
+All times default to end-of-day: use the suffix "T23:59:00Z".
+If no date is present for an assignment, set due_at to null.
 
 Text:
 ${text.slice(0, 24000)}`;
