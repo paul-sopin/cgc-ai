@@ -417,7 +417,7 @@ function renderCustomColumn(cls) {
       nameInput.type = 'text'; nameInput.className = 'inline-input'; nameInput.placeholder = 'Assignment name';
 
       const dateInput = document.createElement('input');
-      dateInput.type = 'datetime-local'; dateInput.className = 'inline-input';
+      dateInput.type = 'date'; dateInput.className = 'inline-input';
 
       const urlInput = document.createElement('input');
       urlInput.type = 'url'; urlInput.className = 'inline-input'; urlInput.placeholder = 'Link (optional)';
@@ -436,7 +436,7 @@ function renderCustomColumn(cls) {
         if (!name) { nameInput.focus(); return; }
         cls.assignments.push({
           id: genId(), name,
-          due_at: dateInput.value ? new Date(dateInput.value).toISOString() : null,
+          due_at: dateInput.value ? new Date(dateInput.value + 'T23:59:00').toISOString() : null,
           url:    urlInput.value.trim() || null,
           done:   false,
         });
