@@ -342,3 +342,47 @@ body {
   border-color: var(--text); transform: scale(1.15);
   box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--text);
 }
+
+/* ─── Add-class modal tabs ───────────────────────────────────────────────── */
+.add-tabs {
+  display: flex; gap: 4px; margin-bottom: 16px;
+  border-bottom: 1px solid var(--border); padding-bottom: 0;
+}
+.add-tab-btn {
+  background: none; border: none; font-family: var(--font); font-size: 13px;
+  font-weight: 500; color: var(--text-muted); cursor: pointer;
+  padding: 6px 14px 10px; border-bottom: 2px solid transparent;
+  margin-bottom: -1px; transition: color var(--tr), border-color var(--tr);
+}
+.add-tab-btn:hover { color: var(--text); }
+.add-tab-btn.active { color: var(--text); border-bottom-color: var(--text); }
+
+/* ─── AI Parse tab ───────────────────────────────────────────────────────── */
+.form-group textarea {
+  width: 100%; padding: 9px 11px; border: 1px solid var(--border); border-radius: 7px;
+  background: var(--bg); color: var(--text); font-size: 13px; font-family: var(--font);
+  outline: none; resize: vertical; min-height: 110px; line-height: 1.5;
+  transition: border-color var(--tr), background var(--tr);
+}
+.form-group textarea:focus { border-color: var(--text-muted); }
+.form-group textarea::placeholder { color: var(--text-muted); }
+
+.ai-preview-header {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 6px;
+  font-size: 13px; color: var(--text-muted); margin-bottom: 4px;
+  padding: 10px 12px; background: var(--bg); border-radius: 7px;
+  border: 1px solid var(--border);
+}
+.ai-preview-header span { font-weight: 600; color: var(--text); font-size: 15px; }
+
+/* ─── Header inline edit form (custom class rename) ─────────────────────── */
+.header-edit-form {
+  display: flex; flex-direction: column; gap: 8px; padding: 6px 0; width: 100%;
+}
+.header-swatches { padding: 2px 0; }
+
+/* ─── Timeframe hidden note ──────────────────────────────────────────────── */
+.timeframe-hidden-note {
+  list-style: none; font-size: 11px; color: var(--text-muted);
+  padding: 6px 14px 2px; font-style: italic;
+}

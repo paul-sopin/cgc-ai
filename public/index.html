@@ -170,15 +170,47 @@
   <div id="add-class-overlay" class="modal-overlay hidden">
     <div class="modal">
       <h2 class="modal-title">Add Custom Class</h2>
-      <p class="modal-subtitle">For classes that aren't on Canvas — add assignments manually.</p>
-      <div class="form-group">
-        <label for="new-class-name">Class name</label>
-        <input type="text" id="new-class-name" placeholder="e.g. Calculus, PE, Art" autocomplete="off" />
+
+      <!-- Tabs -->
+      <div class="add-tabs">
+        <button class="add-tab-btn active" id="add-tab-manual-btn">Manual</button>
+        <button class="add-tab-btn" id="add-tab-ai-btn">✦ AI Parse</button>
       </div>
-      <div class="form-group">
-        <label>Color</label>
-        <div class="color-swatches" id="color-swatches"></div>
+
+      <!-- ── Manual tab ── -->
+      <div id="add-manual-form">
+        <div class="form-group">
+          <label for="new-class-name">Class name</label>
+          <input type="text" id="new-class-name" placeholder="e.g. Calculus, PE, Art" autocomplete="off" />
+        </div>
+        <div class="form-group">
+          <label>Color</label>
+          <div class="color-swatches" id="color-swatches"></div>
+        </div>
       </div>
+
+      <!-- ── AI Parse tab ── -->
+      <div id="add-ai-form" class="hidden">
+        <div class="form-group">
+          <label for="ai-paste-input">Paste your class info</label>
+          <textarea id="ai-paste-input" rows="6" placeholder="Paste anything — a Google Sheets table, syllabus, assignment list, screenshot text… AI will figure it out."></textarea>
+        </div>
+        <button class="btn btn-secondary" id="ai-parse-btn" style="width:100%;margin-bottom:12px;">Parse with AI</button>
+
+        <!-- Preview (shown after parse) -->
+        <div id="ai-preview" class="hidden">
+          <div class="ai-preview-header">
+            <span id="ai-count">0</span> assignments found — class name:
+            <input type="text" id="ai-class-name" class="inline-input" placeholder="Class name" style="display:inline-block;width:auto;flex:1;margin-left:6px;" />
+          </div>
+          <div class="form-group" style="margin-top:10px;">
+            <label>Color</label>
+            <div class="color-swatches" id="ai-color-swatches"></div>
+          </div>
+        </div>
+        <div id="add-ai-error" class="modal-error hidden"></div>
+      </div>
+
       <div id="add-class-error" class="modal-error hidden"></div>
       <div class="modal-actions">
         <button class="btn btn-secondary" id="add-class-cancel-btn">Cancel</button>
@@ -240,6 +272,20 @@
           <input type="password" id="classroom-key-input" placeholder="Paste your Google API key" autocomplete="off" />
           <p class="hint">Full Google Classroom integration coming soon.</p>
         </div>
+      </div>
+
+      <!-- Custom class time frame — shown for both modes -->
+      <div class="section-divider"></div>
+      <div class="form-group" style="margin-bottom:0;">
+        <label for="custom-timeframe-select">Custom class look-ahead</label>
+        <select id="custom-timeframe-select">
+          <option value="7">Next 7 days</option>
+          <option value="14">Next 14 days</option>
+          <option value="30" selected>Next 30 days</option>
+          <option value="60">Next 60 days</option>
+          <option value="0">All time</option>
+        </select>
+        <p class="hint">How far ahead to show assignments in custom classes.</p>
       </div>
 
       <!-- Hidden classes — shown for both modes -->
