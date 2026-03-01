@@ -184,6 +184,17 @@
           <input type="text" id="new-class-name" placeholder="e.g. Calculus, PE, Art" autocomplete="off" />
         </div>
         <div class="form-group">
+          <label>Days class meets <span class="text-muted">(optional)</span></label>
+          <div class="day-picker" id="manual-day-picker">
+            <button type="button" class="day-btn" data-day="M">M</button>
+            <button type="button" class="day-btn" data-day="T">T</button>
+            <button type="button" class="day-btn" data-day="W">W</button>
+            <button type="button" class="day-btn" data-day="Th">Th</button>
+            <button type="button" class="day-btn" data-day="F">F</button>
+          </div>
+          <p class="hint">Assignments will auto-shift to the next class day when a due date is set.</p>
+        </div>
+        <div class="form-group">
           <label>Color</label>
           <div class="color-swatches" id="color-swatches"></div>
         </div>
@@ -197,7 +208,18 @@
         </div>
         <div class="form-group">
           <label for="ai-context-input">Additional instructions <span class="text-muted">(optional)</span></label>
-          <textarea id="ai-context-input" rows="3" placeholder="e.g. Dates shown are when homework is assigned — the actual due date is the next class. Tests are due on the date listed. Class meets Monday, Tuesday, and Thursday."></textarea>
+          <textarea id="ai-context-input" rows="3" placeholder="e.g. Tests are due on the date listed. Note: some days may follow an adjusted schedule."></textarea>
+        </div>
+        <div class="form-group">
+          <label>Days class meets <span class="text-muted">(optional)</span></label>
+          <div class="day-picker" id="ai-day-picker">
+            <button type="button" class="day-btn" data-day="M">M</button>
+            <button type="button" class="day-btn" data-day="T">T</button>
+            <button type="button" class="day-btn" data-day="W">W</button>
+            <button type="button" class="day-btn" data-day="Th">Th</button>
+            <button type="button" class="day-btn" data-day="F">F</button>
+          </div>
+          <p class="hint">Homework dates will be auto-shifted to the next class day after the assigned date.</p>
         </div>
         <button class="btn btn-secondary" id="ai-parse-btn" style="width:100%;margin-bottom:12px;">Parse with AI</button>
 

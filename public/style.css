@@ -32,7 +32,10 @@ body {
   font-family: var(--font);
   background: var(--bg);
   color: var(--text);
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
   transition: background var(--tr), color var(--tr);
 }
 .text-muted { color: var(--text-muted); }
@@ -40,6 +43,7 @@ body {
 
 /* ─── Top bar ────────────────────────────────────────────────────────────── */
 .topbar {
+  flex-shrink: 0;
   position: sticky; top: 0; z-index: 100;
   display: flex; align-items: center; justify-content: space-between;
   height: 50px; padding: 0 18px;
@@ -67,6 +71,7 @@ body {
 
 /* ─── Save-across-devices banner ─────────────────────────────────────────── */
 .save-banner {
+  flex-shrink: 0;
   display: flex; align-items: center; gap: 8px;
   padding: 9px 18px; font-size: 12px;
   background: var(--surface); border-bottom: 1px solid var(--border);
@@ -86,12 +91,20 @@ body {
 .banner-close:hover { color: var(--text); }
 
 /* ─── Main / grid ────────────────────────────────────────────────────────── */
-#main { padding: 20px; }
+#main {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 20px;
+  overflow: hidden;
+}
 .columns-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
-  align-items: start;
+  display: flex;
+  flex: 1;
+  min-height: 0;
   gap: 16px;
+  overflow-x: auto;
 }
 
 /* ─── Status ─────────────────────────────────────────────────────────────── */
@@ -115,10 +128,11 @@ body {
 
 /* ─── Course column ──────────────────────────────────────────────────────── */
 .course-col {
+  flex: 1;
+  min-width: 200px;
   background: var(--surface); border: 1px solid var(--border);
-  border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow);
+  border-radius: var(--radius); box-shadow: var(--shadow);
   display: flex; flex-direction: column;
-  max-height: calc(100vh - 90px);
   overflow-y: auto;
   transition: background var(--tr), border-color var(--tr);
 }
@@ -301,10 +315,6 @@ body {
 
 /* ─── Custom class column ────────────────────────────────────────────────── */
 
-/* Custom columns should NOT stretch the list — keep Add button just below assignments */
-.custom-col { height: auto; }
-.custom-col .assignment-list { flex: 0 0 auto; }
-
 .assignment-checkbox {
   width: 14px; height: 14px; flex-shrink: 0; margin-top: 3px;
   accent-color: var(--c-later); cursor: pointer;
@@ -397,3 +407,15 @@ body {
   list-style: none; font-size: 11px; color: var(--text-muted);
   padding: 6px 14px 2px; font-style: italic;
 }
+
+/* ─── Day-of-week picker ─────────────────────────────────────────────────── */
+.day-picker { display: flex; gap: 6px; padding: 4px 0; }
+.day-btn {
+  padding: 5px 0; width: 38px; border-radius: 6px;
+  border: 1px solid var(--border); background: var(--bg);
+  color: var(--text-muted); font-size: 12px; font-weight: 500;
+  font-family: var(--font); cursor: pointer;
+  transition: background var(--tr), color var(--tr), border-color var(--tr);
+}
+.day-btn:hover { color: var(--text); border-color: var(--text-muted); }
+.day-btn.active { background: var(--text); color: var(--surface); border-color: var(--text); }

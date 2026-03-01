@@ -356,6 +356,34 @@ app.get('/api/canvas/colors', async (req, res) => {
   }
 });
 
+// ─── AI helpers ───────────────────────────────────────────────────────────────
+
+// Maps day abbreviations to JS getUTCDay() values (0=Sun … 6=Sat)
+const DAY_TO_JS = { M: 1, T: 2, W: 3, Th: 4, F: 5 };
+
+// Given an ISO due date and an array of meeting day abbreviations,
+// advances the date to the NEXT meeting day (skips the base date itself).
+// Tests/quizzes/exams are NOT advanced — caller decides what to skip.
+function nextMeetingDay(isoDate, days) {
+  const meetNums = (days || []).map(d => DAY_TO_JS[d]).filter(n => n !== undefined);
+  if (!meetNums.length) return isoDate;
+  const base = new Date(isoDate);
+  for (let offset = 1; offset <= 7; offset++) {
+    const candidate = new Date(base);
+    candidate.setUTCDate(base.getUTCDate() + offset);
+    if (meetNums.includes(candidate.getUTCDay())) {
+      candidate.setUTCHours(23, 59, 0, 0);
+      return candidate.toISOString();
+    }
+  }
+  return isoDate; // fallback — should never happen with valid days
+}
+
+// Returns true if the assignment name looks like a test / quiz / exam.
+function isTestQuizOrExam(name) {
+  return /\b(test|quiz|exam|midterm|final|checkpoint)\b/i.test(name || '');
+}
+
 // ─── AI: parse raw text into a custom class (Groq / Llama) ──────────────────
 app.post('/api/ai/parse-class', async (req, res) => {
   const GROQ_KEY = process.env.GROQ_API_KEY;
@@ -363,7 +391,7 @@ app.post('/api/ai/parse-class', async (req, res) => {
     return res.status(503).json({ error: 'AI is not configured. Add GROQ_API_KEY to Render environment variables.' });
   }
 
-  const { text, context } = req.body;
+  const { text, context, meetsDays } = req.body;
   if (!text?.trim()) return res.status(400).json({ error: 'No text provided' });
 
   const now   = new Date();
@@ -386,8 +414,12 @@ Required output format (strict):
     ? `\n═══ SPECIAL INSTRUCTIONS FROM THE USER (highest priority — override defaults where relevant) ═══\n${context.trim()}\n`
     : '';
 
+  const meetsDaysBlock = meetsDays?.length
+    ? `\n═══ MEETING DAYS ═══\nThis class meets on: ${meetsDays.join(', ')}. Extract each date EXACTLY as listed in the schedule — do NOT advance homework dates to the next class yourself. The system will apply that shift automatically after parsing. Also note: some dates may follow an adjusted or modified schedule (e.g. Grady Day, Modified Monday); accept dates as given even if they do not match the usual meeting pattern.\n`
+    : '';
+
   const userPrompt = `Today is ${today}. Extract every homework assignment from the text below.
-${contextBlock}
+${contextBlock}${meetsDaysBlock}
 ═══ INPUT FORMATS ═══
 The text could be any of:
 • Tab-separated (TSV) copied from Google Sheets — columns like Date, Day, Topic, Homework/HW
@@ -455,6 +487,14 @@ ${text.slice(0, 24000)}`;
     const parsed = JSON.parse(raw);
     if (!parsed.className || !Array.isArray(parsed.assignments)) {
       throw new Error('Unexpected AI response format');
+    }
+
+    // Post-process: advance homework dates to next meeting day (skip tests/quizzes/exams)
+    if (meetsDays?.length && Array.isArray(parsed.assignments)) {
+      parsed.assignments = parsed.assignments.map(a => {
+        if (!a.due_at || isTestQuizOrExam(a.name)) return a;
+        return { ...a, due_at: nextMeetingDay(a.due_at, meetsDays) };
+      });
     }
 
     res.json({ className: parsed.className, assignments: parsed.assignments });

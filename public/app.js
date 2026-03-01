@@ -33,8 +33,10 @@ const CLASS_COLORS = [
   '#e53935', '#f4511e', '#f6bf26', '#0b8043',
   '#039be5', '#3f51b5', '#8e24aa', '#e91e63',
 ];
-let selectedColor   = CLASS_COLORS[4];
-let selectedAiColor = CLASS_COLORS[4];
+let selectedColor    = CLASS_COLORS[4];
+let selectedAiColor  = CLASS_COLORS[4];
+let selectedManualDays = [];   // e.g. ['M','T','Th']
+let selectedAiDays     = [];
 
 // ─── ID generator ─────────────────────────────────────────────────────────────
 function genId() {
@@ -711,9 +713,16 @@ function openAddClassModal() {
 
   document.getElementById('new-class-name').value = '';
   document.getElementById('ai-paste-input').value = '';
+  document.getElementById('ai-context-input').value = '';
   document.getElementById('ai-preview').classList.add('hidden');
   document.getElementById('add-ai-error').classList.add('hidden');
   document.getElementById('add-class-error').classList.add('hidden');
+
+  // Reset day pickers
+  selectedManualDays = [];
+  selectedAiDays = [];
+  document.querySelectorAll('#manual-day-picker .day-btn, #ai-day-picker .day-btn')
+    .forEach(btn => btn.classList.remove('active'));
 
   setupColorSwatches('color-swatches',    selectedColor,   c => { selectedColor   = c; });
   setupColorSwatches('ai-color-swatches', selectedAiColor, c => { selectedAiColor = c; });
@@ -749,7 +758,11 @@ async function handleAiParse() {
     const result = await apiFetch('/api/ai/parse-class', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text, context: context || undefined }),
+      body: JSON.stringify({
+        text,
+        context:   context || undefined,
+        meetsDays: selectedAiDays.length ? selectedAiDays : undefined,
+      }),
     });
 
     aiParsedData = result;
@@ -787,11 +800,18 @@ async function saveNewClass() {
       name,
       color:       selectedAiColor,
       assignments: (aiParsedData.assignments || []).map(a => ({ ...a, id: genId(), done: false })),
+      meetsDays:   selectedAiDays.length ? [...selectedAiDays] : undefined,
     };
   } else {
     const name = document.getElementById('new-class-name').value.trim();
     if (!name) { showAddError('Enter a class name'); return; }
-    cls = { id: genId(), name, color: selectedColor, assignments: [] };
+    cls = {
+      id:        genId(),
+      name,
+      color:     selectedColor,
+      assignments: [],
+      meetsDays: selectedManualDays.length ? [...selectedManualDays] : undefined,
+    };
   }
 
   await saveCustomClasses([...appState.customClasses, cls]);
@@ -826,6 +846,26 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('add-tab-manual-btn').addEventListener('click', () => switchAddTab('manual'));
   document.getElementById('add-tab-ai-btn').addEventListener('click', () => switchAddTab('ai'));
   document.getElementById('ai-parse-btn').addEventListener('click', handleAiParse);
+
+  // Day-of-week pickers
+  document.querySelectorAll('#manual-day-picker .day-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const day = btn.dataset.day;
+      const idx = selectedManualDays.indexOf(day);
+      if (idx === -1) selectedManualDays.push(day);
+      else selectedManualDays.splice(idx, 1);
+      btn.classList.toggle('active', selectedManualDays.includes(day));
+    });
+  });
+  document.querySelectorAll('#ai-day-picker .day-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const day = btn.dataset.day;
+      const idx = selectedAiDays.indexOf(day);
+      if (idx === -1) selectedAiDays.push(day);
+      else selectedAiDays.splice(idx, 1);
+      btn.classList.toggle('active', selectedAiDays.includes(day));
+    });
+  });
 
   // Auth nav
   document.getElementById('have-account-btn').addEventListener('click', () => { setAuthError('login-error',''); showAuthPage('auth-page-signin'); });
