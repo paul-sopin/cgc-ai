@@ -88,7 +88,7 @@ body {
 #main { padding: 20px; }
 .columns-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
   gap: 16px;
 }
 
@@ -260,3 +260,9 @@ body {
 .btn-link { background: none; border: none; color: var(--text-muted); font-size: 12px; font-family: var(--font); cursor: pointer; padding: 0; text-decoration: underline; }
 .btn-link:hover { color: var(--text); }
 .btn.hidden { display: none; }
+
+/* ─── Auth bottom links ──────────────────────────────────────────────────── */
+.auth-bottom-links {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border);
+}

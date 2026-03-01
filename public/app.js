@@ -227,7 +227,7 @@ async function loadData() {
 
 // ─── Auth modal helpers ───────────────────────────────────────────────────────
 function showAuthPage(pageId) {
-  ['auth-page-choice', 'auth-page-create', 'auth-page-forgot'].forEach(id => {
+  ['auth-page-token', 'auth-page-signin', 'auth-page-create', 'auth-page-forgot'].forEach(id => {
     document.getElementById(id).classList.toggle('hidden', id !== pageId);
   });
 }
@@ -236,7 +236,7 @@ function setAuthError(id, msg) {
   el.textContent = msg; el.classList.toggle('hidden', !msg);
 }
 function openAuthModal() {
-  showAuthPage('auth-page-choice');
+  showAuthPage('auth-page-token');
   document.getElementById('auth-overlay').classList.remove('hidden');
 }
 
@@ -363,23 +363,17 @@ document.addEventListener('DOMContentLoaded', () => {
   // ── Refresh ──
   document.getElementById('refresh-btn').addEventListener('click', loadData);
 
-  // ── Auth modal tabs ──
-  document.getElementById('tab-signin-btn').addEventListener('click', () => {
-    document.getElementById('tab-signin-btn').classList.add('active');
-    document.getElementById('tab-token-btn').classList.remove('active');
-    document.getElementById('signin-form').classList.remove('hidden');
-    document.getElementById('token-form').classList.add('hidden');
-    setAuthError('login-error', ''); setAuthError('token-error', '');
+  // ── Auth nav links ──
+  document.getElementById('have-account-btn').addEventListener('click', () => {
+    setAuthError('login-error', '');
+    showAuthPage('auth-page-signin');
   });
-  document.getElementById('tab-token-btn').addEventListener('click', () => {
-    document.getElementById('tab-token-btn').classList.add('active');
-    document.getElementById('tab-signin-btn').classList.remove('active');
-    document.getElementById('token-form').classList.remove('hidden');
-    document.getElementById('signin-form').classList.add('hidden');
-    setAuthError('login-error', ''); setAuthError('token-error', '');
+  document.getElementById('back-to-token-btn').addEventListener('click', () => {
+    setAuthError('token-error', '');
+    showAuthPage('auth-page-token');
   });
 
-  // ── School select (token tab) ──
+  // ── School select (token page) ──
   document.getElementById('session-school-select').addEventListener('change', e => {
     document.getElementById('session-custom-url-group').classList.toggle('hidden', e.target.value !== 'custom');
   });
@@ -408,7 +402,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('verify-reset-btn').dataset.step = 'verify';
     setAuthError('forgot-error', '');
   });
-  document.getElementById('back-to-signin-btn').addEventListener('click', () => showAuthPage('auth-page-choice'));
+  document.getElementById('back-to-signin-btn').addEventListener('click', () => showAuthPage('auth-page-token'));
 
   let resetVerifiedToken = null;
   document.getElementById('verify-reset-btn').addEventListener('click', async () => {
@@ -541,6 +535,9 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   document.getElementById('login-password').addEventListener('keydown', e => {
     if (e.key === 'Enter') document.getElementById('login-btn').click();
+  });
+  document.getElementById('session-token-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('token-continue-btn').click();
   });
 
   // ─── Initial boot ─────────────────────────────────────────────────────────

@@ -54,69 +54,66 @@
   </main>
 
   <!-- ════════════════════════════════════════════════════════════════════════
-       AUTH MODAL  (sign-in / register / reset)
+       AUTH MODAL  (token / sign-in / register / reset)
   ═══════════════════════════════════════════════════════════════════════════ -->
   <div id="auth-overlay" class="modal-overlay hidden">
     <div class="modal">
 
-      <!-- Page 1: choice — Sign In tab | Token tab -->
-      <div id="auth-page-choice" class="auth-page">
+      <!-- Page 1 (default): Canvas Token entry -->
+      <div id="auth-page-token" class="auth-page">
         <h2 class="modal-title">Homework Tracker</h2>
-        <div class="auth-tabs">
-          <button class="auth-tab active" id="tab-signin-btn">Sign In</button>
-          <button class="auth-tab" id="tab-token-btn">Canvas Token</button>
+        <div class="form-group">
+          <label for="session-token-input">Canvas Access Token</label>
+          <input type="password" id="session-token-input" placeholder="Paste your token here" autocomplete="off" />
+          <p class="hint">
+            <strong>How to get your token:</strong><br />
+            1. Log in to Canvas &rarr; click your profile picture &rarr; <em>Settings</em><br />
+            2. Scroll to <em>Approved Integrations</em> &rarr; click <strong>+ New Access Token</strong><br />
+            3. Name it anything (e.g. "Homework Tracker")<br />
+            4. <strong>Leave the expiry date blank</strong> — do not type a date or Canvas may expire it immediately<br />
+            5. Click <strong>Generate Token</strong>, copy it and paste above
+          </p>
         </div>
-
-        <!-- Sign-in form -->
-        <div id="signin-form">
-          <div class="form-group">
-            <label for="login-email">School email</label>
-            <input type="email" id="login-email" placeholder="you@dublinusd.org" autocomplete="email" />
-          </div>
-          <div class="form-group">
-            <label for="login-password">Password</label>
-            <input type="password" id="login-password" placeholder="Your password" autocomplete="current-password" />
-          </div>
-          <div id="login-error" class="modal-error hidden"></div>
-          <div class="modal-actions">
-            <button class="btn btn-link" id="forgot-pw-btn">Forgot password?</button>
-            <button class="btn btn-primary" id="login-btn">Sign In</button>
-          </div>
+        <div class="form-group">
+          <label for="session-school-select">School</label>
+          <select id="session-school-select">
+            <option value="dublinusd.instructure.com">Dublin High School (Dublin USD)</option>
+            <option value="custom">Other — enter URL below</option>
+          </select>
         </div>
-
-        <!-- Token form -->
-        <div id="token-form" class="hidden">
-          <div class="form-group">
-            <label for="session-token-input">Canvas Access Token</label>
-            <input type="password" id="session-token-input" placeholder="Paste your token here" autocomplete="off" />
-            <p class="hint">
-              <strong>How to get your token:</strong><br />
-              1. Log in to Canvas &rarr; click your profile picture &rarr; <em>Settings</em><br />
-              2. Scroll to <em>Approved Integrations</em> &rarr; click <strong>+ New Access Token</strong><br />
-              3. Name it anything (e.g. "Homework Tracker")<br />
-              4. <strong>Leave the expiry date blank</strong> — do not type a date or Canvas may expire it immediately<br />
-              5. Click <strong>Generate Token</strong>, copy it and paste above
-            </p>
-          </div>
-          <div class="form-group">
-            <label for="session-school-select">School</label>
-            <select id="session-school-select">
-              <option value="dublinusd.instructure.com">Dublin High School (Dublin USD)</option>
-              <option value="custom">Other — enter URL below</option>
-            </select>
-          </div>
-          <div class="form-group hidden" id="session-custom-url-group">
-            <label for="session-custom-url">Canvas domain</label>
-            <input type="text" id="session-custom-url" placeholder="e.g. yourschool.instructure.com" />
-          </div>
-          <div id="token-error" class="modal-error hidden"></div>
-          <div class="modal-actions">
-            <button class="btn btn-primary" id="token-continue-btn">Continue →</button>
-          </div>
+        <div class="form-group hidden" id="session-custom-url-group">
+          <label for="session-custom-url">Canvas domain</label>
+          <input type="text" id="session-custom-url" placeholder="e.g. yourschool.instructure.com" />
+        </div>
+        <div id="token-error" class="modal-error hidden"></div>
+        <div class="modal-actions">
+          <button class="btn btn-primary" id="token-continue-btn">Continue →</button>
+        </div>
+        <div class="auth-bottom-links">
+          <button class="btn-link" id="have-account-btn">I already have an account</button>
+          <button class="btn-link" id="forgot-pw-btn">Forgot password?</button>
         </div>
       </div>
 
-      <!-- Page 2: after token verified — create account or skip -->
+      <!-- Page 2: Sign In (email + password) -->
+      <div id="auth-page-signin" class="auth-page hidden">
+        <h2 class="modal-title">Sign In</h2>
+        <div class="form-group">
+          <label for="login-email">School email</label>
+          <input type="email" id="login-email" placeholder="you@dublinusd.org" autocomplete="email" />
+        </div>
+        <div class="form-group">
+          <label for="login-password">Password</label>
+          <input type="password" id="login-password" placeholder="Your password" autocomplete="current-password" />
+        </div>
+        <div id="login-error" class="modal-error hidden"></div>
+        <div class="modal-actions">
+          <button class="btn btn-link" id="back-to-token-btn">← Back</button>
+          <button class="btn btn-primary" id="login-btn">Sign In</button>
+        </div>
+      </div>
+
+      <!-- Page 3: after token verified — create account or skip -->
       <div id="auth-page-create" class="auth-page hidden">
         <h2 class="modal-title">Almost done</h2>
         <p class="modal-subtitle">
@@ -126,7 +123,7 @@
         <div class="form-group">
           <label for="reg-password">Set a password <span class="text-muted">(optional)</span></label>
           <input type="password" id="reg-password" placeholder="Min. 6 characters" autocomplete="new-password" />
-          <p class="hint">Create an account so you can sign in from any Chromebook without re-pasting your token.</p>
+          <p class="hint">Create an account so you can sign in from any device without re-pasting your token.</p>
         </div>
         <div id="reg-error" class="modal-error hidden"></div>
         <div class="modal-actions">
@@ -135,7 +132,7 @@
         </div>
       </div>
 
-      <!-- Page 3: forgot password — token identity check -->
+      <!-- Page 4: forgot password — token identity check -->
       <div id="auth-page-forgot" class="auth-page hidden">
         <h2 class="modal-title">Reset password</h2>
         <p class="modal-subtitle">Paste a Canvas token (can be freshly generated) to verify your identity.</p>
