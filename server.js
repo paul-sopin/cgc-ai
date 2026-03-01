@@ -7,7 +7,6 @@ const crypto     = require('crypto');
 const bcrypt     = require('bcrypt');
 const jwt        = require('jsonwebtoken');
 const { createClient } = require('@supabase/supabase-js');
-const { GoogleGenAI } = require('@google/genai');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -357,11 +356,11 @@ app.get('/api/canvas/colors', async (req, res) => {
   }
 });
 
-// ─── AI: parse raw text into a custom class ───────────────────────────────────
+// ─── AI: parse raw text into a custom class (Groq / Llama) ──────────────────
 app.post('/api/ai/parse-class', async (req, res) => {
-  const GEMINI_KEY = process.env.GEMINI_API_KEY;
-  if (!GEMINI_KEY) {
-    return res.status(503).json({ error: 'AI is not configured on this server. Add GEMINI_API_KEY to your Render environment variables.' });
+  const GROQ_KEY = process.env.GROQ_API_KEY;
+  if (!GROQ_KEY) {
+    return res.status(503).json({ error: 'AI is not configured. Add GROQ_API_KEY to Render environment variables.' });
   }
 
   const { text } = req.body;
@@ -370,56 +369,51 @@ app.post('/api/ai/parse-class', async (req, res) => {
   const year  = new Date().getFullYear();
   const today = new Date().toISOString().slice(0, 10);
 
-  const prompt = `You are a homework tracker assistant. Today is ${today}.
+  const systemPrompt = `You are a homework tracker assistant. Extract assignments from text and return ONLY a valid JSON object — no markdown, no explanation, nothing else.
 
-Extract all homework assignments from the text below and return them as JSON.
+Format: {"className":"class name","assignments":[{"name":"assignment description","due_at":"YYYY-MM-DDTHH:mm:ssZ or null"}]}`;
 
-The text may be in any format: tab-separated (TSV) from Google Sheets, a syllabus, a simple list, or a schedule table. Common column names include "Homework", "HW", "Assignment", "Due", "Section/Topic". Row headers like day-of-week or "No School" rows should be skipped.
+  const userPrompt = `Today is ${today}. Extract all homework assignments from the text below.
 
-Return ONLY a raw JSON object — no markdown, no code fences, no extra words before or after. Format:
-{"className":"short class name","assignments":[{"name":"assignment description","due_at":"YYYY-MM-DDTHH:mm:ssZ or null"}]}
+The text may be tab-separated (TSV from Google Sheets), a syllabus, list, or schedule. Column names to look for: "Homework", "HW", "Assignment", "Due".
 
 Rules:
-- className: infer from content (e.g. "AP Calculus AB", "US History"). Use "Custom Class" if unclear.
-- Include every distinct homework item, problem set, worksheet, quiz, and test.
-- For TSV data: the "Homework:" or "HW" column contains the assignment. The date for that assignment is in the same row (look for a date column like "Date" with values like "1/6" or "M 1/5").
-- Dates like "1/6" or "3/5" mean month/day of year ${year} (or ${year + 1} if the month is earlier than today's month and the context implies a future semester). Output as ISO 8601 UTC: "YYYY-MM-DDT23:59:00Z".
-- If no date is found for an assignment, use null.
-- Skip rows where the homework cell is blank or says "No School".
-- Do not include classwork, quizzes column entries, or schedule notes as assignments UNLESS they look like graded work (e.g. a quiz or test).
+- className: infer from content (e.g. "AP Calculus AB"). Use "Custom Class" if unclear.
+- Include homework, problem sets, worksheets, quizzes, and tests.
+- TSV data: find the Homework/HW column value. The date is in the same row's Date column (e.g. "1/6" or "M 1/5").
+- Dates like "1/6" mean month/day of ${year} (use ${year + 1} if month < current month and context implies next semester). Format: "YYYY-MM-DDT23:59:00Z".
+- due_at is null if no date found.
+- Skip rows where homework cell is blank or says "No School".
+- Do not include classwork or schedule notes unless clearly a graded quiz/test.
 
 Text:
-${text.slice(0, 16000)}`;
+${text.slice(0, 24000)}`;
 
   try {
-    const ai       = new GoogleGenAI({ apiKey: GEMINI_KEY });
-    const response = await ai.models.generateContent({
-      model:    'gemini-2.0-flash',
-      contents: prompt,
-    });
+    const { data } = await axios.post(
+      'https://api.groq.com/openai/v1/chat/completions',
+      {
+        model:           'llama-3.3-70b-versatile',
+        messages:        [{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }],
+        temperature:     0.1,
+        max_tokens:      8192,
+        response_format: { type: 'json_object' },  // guarantees valid JSON output
+      },
+      { headers: { Authorization: `Bearer ${GROQ_KEY}`, 'Content-Type': 'application/json' } }
+    );
 
-    const raw = response.text || '';
+    const raw = data.choices?.[0]?.message?.content || '';
     console.log('[AI raw response]', raw.slice(0, 300));
 
-    // Robust extraction: find the outermost { ... } in the response
-    const start = raw.indexOf('{');
-    const end   = raw.lastIndexOf('}');
-    if (start === -1 || end === -1) throw new Error('No JSON object found in AI response');
-    const parsed = JSON.parse(raw.slice(start, end + 1));
-
+    const parsed = JSON.parse(raw);
     if (!parsed.className || !Array.isArray(parsed.assignments)) {
       throw new Error('Unexpected AI response format');
     }
 
     res.json({ className: parsed.className, assignments: parsed.assignments });
   } catch (err) {
-    // Log the full error so Render logs show the real Gemini error message
-    console.error('[AI parse error] status:', err.status, '| message:', err.message, '| details:', JSON.stringify(err.errorDetails ?? err.response?.data ?? ''));
-    const is429 = err.status === 429 || err.message?.includes('429') || err.message?.includes('RESOURCE_EXHAUSTED');
-    const msg = is429
-      ? `AI quota error — try creating a fresh API key at aistudio.google.com. (Gemini: ${err.message})`
-      : `AI parse failed: ${err.message}`;
-    res.status(500).json({ error: msg });
+    console.error('[AI parse error]', err.response?.data ?? err.message);
+    res.status(500).json({ error: `AI parse failed: ${err.response?.data?.error?.message ?? err.message}` });
   }
 });
 
