@@ -426,6 +426,9 @@ Do NOT deviate from this table based on surrounding context, guessing, or proxim
 All times default to end-of-day: use the suffix "T23:59:00Z".
 If no date is present for an assignment, set due_at to null.
 
+CHRONOLOGICAL CONSISTENCY — apply after the lookup above:
+Schedules are always written in forward chronological order. After assigning years with the table, walk through all assignments in document order and check that each date is >= the previous date. If a date would come BEFORE the previous date (i.e. the sequence goes backward in time), that date has crossed into the next calendar year — add 1 year to it and to every subsequent date until the sequence is non-decreasing again. Example: if 7/3→2026 is followed by 11/3→2025, that 11/3 goes backward, so correct it to 11/3→2026; if then 2/1→2026 goes backward vs 11/3→2026, correct it to 2/1→2027.
+
 Text:
 ${text.slice(0, 24000)}`;
 
