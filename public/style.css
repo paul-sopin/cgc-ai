@@ -266,3 +266,79 @@ body {
   display: flex; justify-content: space-between; align-items: center;
   margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border);
 }
+
+/* ─── Drag handle ────────────────────────────────────────────────────────── */
+.drag-handle {
+  color: var(--border); font-size: 14px; cursor: grab;
+  user-select: none; flex-shrink: 0; padding-right: 6px;
+  transition: color var(--tr);
+}
+.drag-handle:active { cursor: grabbing; }
+.course-header:hover .drag-handle { color: var(--text-muted); }
+
+/* Drag-and-drop visual states */
+.course-col.dragging { opacity: 0.4; }
+.course-col.drag-over { outline: 2px dashed var(--text-muted); outline-offset: -2px; }
+
+/* ─── Completed assignments ──────────────────────────────────────────────── */
+.assignment-item.completed { opacity: 0.6; }
+.assignment-item.completed .assignment-link { text-decoration: line-through; }
+.due-dot.done { background: var(--c-later); }
+.assignment-due.done { color: var(--c-later); }
+
+/* Divider between todo and completed */
+.completed-divider {
+  list-style: none;
+  border-top: 1px dashed var(--border);
+  margin: 4px 14px;
+}
+
+/* ─── Custom class column ────────────────────────────────────────────────── */
+.assignment-checkbox {
+  width: 14px; height: 14px; flex-shrink: 0; margin-top: 3px;
+  accent-color: var(--c-later); cursor: pointer;
+}
+.custom-assignment { gap: 8px; }
+
+/* × button on custom assignments */
+.custom-del-btn {
+  background: none; border: none; color: transparent; font-size: 14px;
+  cursor: pointer; flex-shrink: 0; padding: 0 2px; line-height: 1;
+  transition: color var(--tr);
+}
+.assignment-item:hover .custom-del-btn { color: var(--text-muted); }
+.custom-del-btn:hover { color: var(--text) !important; }
+
+/* Add assignment row at bottom of custom columns */
+.add-assignment-row {
+  padding: 8px 14px 10px;
+  border-top: 1px solid var(--border);
+}
+.add-assignment-btn {
+  font-size: 12px; color: var(--text-muted);
+}
+.add-assignment-btn:hover { color: var(--text); }
+
+/* Inline add-assignment form */
+.inline-add-form { display: flex; flex-direction: column; gap: 6px; }
+.inline-input {
+  width: 100%; padding: 7px 10px; border: 1px solid var(--border); border-radius: 6px;
+  background: var(--bg); color: var(--text); font-size: 12px; font-family: var(--font);
+  outline: none; transition: border-color var(--tr);
+}
+.inline-input:focus { border-color: var(--text-muted); }
+.inline-actions { display: flex; gap: 8px; justify-content: flex-end; padding-top: 2px; }
+
+/* ─── Color swatches (add class modal) ───────────────────────────────────── */
+.color-swatches {
+  display: flex; gap: 8px; flex-wrap: wrap; padding: 4px 0;
+}
+.color-swatch {
+  width: 28px; height: 28px; border-radius: 50%; border: 2px solid transparent;
+  cursor: pointer; transition: transform 0.12s, border-color 0.12s;
+}
+.color-swatch:hover { transform: scale(1.15); }
+.color-swatch.selected {
+  border-color: var(--text); transform: scale(1.15);
+  box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--text);
+}

@@ -19,6 +19,11 @@
           <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
         </svg>
       </button>
+      <button class="icon-btn" id="add-class-btn" title="Add custom class">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+      </button>
       <button class="icon-btn" id="settings-btn" title="Settings">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="12" cy="12" r="3"/>
@@ -140,7 +145,6 @@
           <label for="reset-token-input">Canvas Access Token</label>
           <input type="password" id="reset-token-input" placeholder="Paste your token here" autocomplete="off" />
         </div>
-        <!-- Shown after token verified -->
         <div id="reset-pw-section" class="hidden">
           <p class="hint" style="margin-bottom:12px">
             Verified: <strong id="reset-email-display"></strong>
@@ -157,6 +161,29 @@
         </div>
       </div>
 
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════════════════
+       ADD CUSTOM CLASS MODAL
+  ═══════════════════════════════════════════════════════════════════════════ -->
+  <div id="add-class-overlay" class="modal-overlay hidden">
+    <div class="modal">
+      <h2 class="modal-title">Add Custom Class</h2>
+      <p class="modal-subtitle">For classes that aren't on Canvas — add assignments manually.</p>
+      <div class="form-group">
+        <label for="new-class-name">Class name</label>
+        <input type="text" id="new-class-name" placeholder="e.g. Calculus, PE, Art" autocomplete="off" />
+      </div>
+      <div class="form-group">
+        <label>Color</label>
+        <div class="color-swatches" id="color-swatches"></div>
+      </div>
+      <div id="add-class-error" class="modal-error hidden"></div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" id="add-class-cancel-btn">Cancel</button>
+        <button class="btn btn-primary" id="add-class-save-btn">Add Class</button>
+      </div>
     </div>
   </div>
 

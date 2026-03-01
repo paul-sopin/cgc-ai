@@ -231,11 +231,11 @@ app.post('/api/auth/reset-password', async (req, res) => {
   }
 });
 
-// Current user info
+// Current user info — now includes course_order and custom_classes
 app.get('/api/auth/me', requireAuth, async (req, res) => {
   const { data } = await supabase
     .from('users')
-    .select('email, canvas_url, hidden_courses')
+    .select('email, canvas_url, hidden_courses, course_order, custom_classes')
     .eq('id', req.userId)
     .single();
   if (!data) return res.status(404).json({ error: 'User not found' });
@@ -247,7 +247,6 @@ app.patch('/api/user/canvas-token', requireAuth, async (req, res) => {
   const { canvasToken, canvasUrl } = req.body;
   if (!canvasToken) return res.status(400).json({ error: 'Canvas token required' });
   try {
-    // Verify the new token before saving
     await axios.get(
       `https://${canvasUrl || 'dublinusd.instructure.com'}/api/v1/users/self/profile`,
       { headers: canvasHeader(canvasToken) }
@@ -276,6 +275,32 @@ app.patch('/api/user/hidden-courses', requireAuth, async (req, res) => {
   res.json({ ok: true });
 });
 
+// Update course order
+app.patch('/api/user/course-order', requireAuth, async (req, res) => {
+  const { courseOrder } = req.body;
+  if (!Array.isArray(courseOrder))
+    return res.status(400).json({ error: 'courseOrder must be an array' });
+  const { error } = await supabase
+    .from('users')
+    .update({ course_order: courseOrder, updated_at: new Date().toISOString() })
+    .eq('id', req.userId);
+  if (error) return res.status(500).json({ error: 'Could not update course order' });
+  res.json({ ok: true });
+});
+
+// Update custom classes
+app.patch('/api/user/custom-classes', requireAuth, async (req, res) => {
+  const { customClasses } = req.body;
+  if (!Array.isArray(customClasses))
+    return res.status(400).json({ error: 'customClasses must be an array' });
+  const { error } = await supabase
+    .from('users')
+    .update({ custom_classes: customClasses, updated_at: new Date().toISOString() })
+    .eq('id', req.userId);
+  if (error) return res.status(500).json({ error: 'Could not update custom classes' });
+  res.json({ ok: true });
+});
+
 // ─── Canvas API proxy ─────────────────────────────────────────────────────────
 
 app.get('/api/canvas/courses', async (req, res) => {
@@ -295,10 +320,25 @@ app.get('/api/canvas/courses', async (req, res) => {
 app.get('/api/canvas/courses/:courseId/assignments', async (req, res) => {
   try {
     const { token, baseUrl } = await resolveCanvas(req);
-    const { data } = await axios.get(
+    const { data: rawData } = await axios.get(
       `${baseUrl}/api/v1/courses/${req.params.courseId}/assignments`,
-      { headers: canvasHeader(token), params: { per_page: 100, order_by: 'due_at', bucket: 'upcoming' } }
+      {
+        headers: canvasHeader(token),
+        // No bucket filter — fetch all and filter below to include submission state
+        params: { per_page: 100, order_by: 'due_at', include: ['submission'] },
+      }
     );
+
+    // Keep unsubmitted assignments + submitted ones from the last 30 days
+    const thirtyDaysAgo = Date.now() - 30 * 86_400_000;
+    const data = rawData.filter(a => {
+      const state = a.submission?.workflow_state;
+      const submitted = state === 'submitted' || state === 'graded';
+      if (!submitted) return true; // always show incomplete work
+      const dueMs = a.due_at ? new Date(a.due_at).getTime() : 0;
+      return dueMs > thirtyDaysAgo; // only keep recently-completed
+    });
+
     res.json(data);
   } catch (err) {
     if (err.response) return handleCanvasError(res, err);
