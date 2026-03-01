@@ -368,6 +368,10 @@ function nextMeetingDay(isoDate, days) {
   const meetNums = (days || []).map(d => DAY_TO_JS[d]).filter(n => n !== undefined);
   if (!meetNums.length) return isoDate;
   const base = new Date(isoDate);
+  // If the date already falls on a meeting day, the AI found an explicitly-stated
+  // due date — respect it as-is and don't advance.
+  if (meetNums.includes(base.getUTCDay())) return isoDate;
+  // Otherwise the date is the class day homework was assigned on; advance to next class.
   for (let offset = 1; offset <= 7; offset++) {
     const candidate = new Date(base);
     candidate.setUTCDate(base.getUTCDate() + offset);
